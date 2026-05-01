@@ -94,6 +94,7 @@ router.post('/', authMiddleware, async (req, res) => {
           notes
         };
 
+        // Send email to user
         if (user.email) {
           await sendEmail(
             user.email,
@@ -102,6 +103,7 @@ router.post('/', authMiddleware, async (req, res) => {
           );
         }
 
+        // Send email to provider
         if (provider.email) {
           await sendEmail(
             provider.email,
@@ -110,6 +112,7 @@ router.post('/', authMiddleware, async (req, res) => {
           );
         }
 
+        // Provider notification
         await db.query(
           `INSERT INTO notifications 
           (recipient_type, recipient_id, type, title, message, data) 
@@ -157,8 +160,6 @@ router.get('/my', authMiddleware, async (req, res) => {
         b.*,
         s.title,
         s.price,
-        s.category,
-        s.image,
         p.name AS provider_name,
         p.phone AS provider_phone
       FROM bookings b
