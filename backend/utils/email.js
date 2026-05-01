@@ -8,7 +8,7 @@ let transporter = null;
 if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
   transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: 587, // ✅ Better than Gmail service shortcut
+    port: 587,
     secure: false,
     requireTLS: true,
     auth: {
@@ -48,7 +48,6 @@ const emailStyles = `
 
 // ✅ SAFE EMAIL FUNCTION (never crashes booking flow)
 async function sendEmail(to, subject, htmlContent) {
-  // Skip completely if email not configured
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD || !transporter) {
     console.log(`📧 Email skipped (not configured): ${subject} → ${to}`);
     return {
@@ -59,7 +58,6 @@ async function sendEmail(to, subject, htmlContent) {
   }
 
   try {
-    // Optional verify once
     await transporter.verify();
 
     const info = await transporter.sendMail({
@@ -70,13 +68,13 @@ async function sendEmail(to, subject, htmlContent) {
     });
 
     console.log(`📧 Email sent successfully to ${to}: ${subject}`);
+
     return {
       success: true,
       messageId: info.messageId
     };
 
   } catch (err) {
-    // ✅ Never throw → prevents backend hangs
     console.error(`⚠️ Email send failed (${to}):`, err.message);
 
     return {
@@ -86,10 +84,60 @@ async function sendEmail(to, subject, htmlContent) {
   }
 }
 
-// KEEP ALL YOUR EXISTING TEMPLATE FUNCTIONS BELOW EXACTLY SAME:
-// bookingConfirmationUser()
-// bookingAlertProvider()
-// bookingStatusUpdate()
+// ✅ BOOKING CONFIRMATION FOR USER
+function bookingConfirmationUser(user, booking, service, provider) {
+  return `
+    <html>
+      <body style="font-family: Arial, sans-serif;">
+        <h1>🎉 Booking Confirmed</h1>
+        <p>Hi ${user?.name || 'User'},</p>
+        <p>Your booking for <strong>${service?.title || 'Service'}</strong> has been placed successfully.</p>
+        <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
+        <p><strong>Provider:</strong> ${provider?.name || 'Provider'}</p>
+        <p><strong>Date:</strong> ${booking?.scheduled_date || 'N/A'}</p>
+        <p><strong>Time:</strong> ${booking?.scheduled_time || 'N/A'}</p>
+        <p><strong>Address:</strong> ${booking?.address || 'N/A'}</p>
+        <p>Thank you for using GoServify.</p>
+      </body>
+    </html>
+  `;
+}
+
+// ✅ NEW BOOKING ALERT FOR PROVIDER
+function bookingAlertProvider(provider, booking, service, user) {
+  return `
+    <html>
+      <body style="font-family: Arial, sans-serif;">
+        <h1>📋 New Booking Request</h1>
+        <p>Hi ${provider?.name || 'Provider'},</p>
+        <p>You received a new booking for <strong>${service?.title || 'Service'}</strong>.</p>
+        <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
+        <p><strong>Customer:</strong> ${user?.name || 'User'}</p>
+        <p><strong>Phone:</strong> ${user?.phone || 'N/A'}</p>
+        <p><strong>Date:</strong> ${booking?.scheduled_date || 'N/A'}</p>
+        <p><strong>Time:</strong> ${booking?.scheduled_time || 'N/A'}</p>
+        <p><strong>Address:</strong> ${booking?.address || 'N/A'}</p>
+      </body>
+    </html>
+  `;
+}
+
+// ✅ STATUS UPDATE EMAIL
+function bookingStatusUpdate(user, booking, service, status, providerName) {
+  return `
+    <html>
+      <body style="font-family: Arial, sans-serif;">
+        <h1>📌 Booking Status Update</h1>
+        <p>Hi ${user?.name || 'User'},</p>
+        <p>Your booking for <strong>${service?.title || 'Service'}</strong> is now:</p>
+        <h2>${status || 'Updated'}</h2>
+        <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
+        <p><strong>Provider:</strong> ${providerName || 'Provider'}</p>
+        <p>Thank you for using GoServify.</p>
+      </body>
+    </html>
+  `;
+}
 
 module.exports = {
   sendEmail,
