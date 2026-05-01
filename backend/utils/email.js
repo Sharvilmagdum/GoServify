@@ -1,25 +1,33 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-// ✅ SAFE + RENDER FRIENDLY SMTP CONFIG
+// =============================
+// SAFE + RENDER FRIENDLY SMTP
+// =============================
 let transporter = null;
 
-// Only configure transporter if email credentials exist
+// Only configure transporter if credentials exist
 if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
   transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    requireTLS: true,
+
+    // ✅ Better Gmail config for Render
+    port: 465,
+    secure: true, // SSL
+
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
     },
 
-    // ✅ Prevent hanging on Render
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
+    // ✅ Prevent timeout on Render
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
+
+    tls: {
+      rejectUnauthorized: false
+    }
   });
 }
 
@@ -46,8 +54,11 @@ const emailStyles = `
   td { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
 `;
 
-// ✅ SAFE EMAIL FUNCTION (never crashes booking flow)
+// =============================
+// SAFE EMAIL FUNCTION
+// =============================
 async function sendEmail(to, subject, htmlContent) {
+  // Skip if not configured
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD || !transporter) {
     console.log(`📧 Email skipped (not configured): ${subject} → ${to}`);
     return {
@@ -58,6 +69,7 @@ async function sendEmail(to, subject, htmlContent) {
   }
 
   try {
+    // Verify SMTP connection
     await transporter.verify();
 
     const info = await transporter.sendMail({
@@ -75,6 +87,7 @@ async function sendEmail(to, subject, htmlContent) {
     };
 
   } catch (err) {
+    // Never crash app
     console.error(`⚠️ Email send failed (${to}):`, err.message);
 
     return {
@@ -84,7 +97,9 @@ async function sendEmail(to, subject, htmlContent) {
   }
 }
 
-// ✅ BOOKING CONFIRMATION FOR USER
+// =============================
+// BOOKING CONFIRMATION FOR USER
+// =============================
 function bookingConfirmationUser(user, booking, service, provider) {
   return `
     <html>
@@ -92,25 +107,31 @@ function bookingConfirmationUser(user, booking, service, provider) {
         <h1>🎉 Booking Confirmed</h1>
         <p>Hi ${user?.name || 'User'},</p>
         <p>Your booking for <strong>${service?.title || 'Service'}</strong> has been placed successfully.</p>
+
         <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
         <p><strong>Provider:</strong> ${provider?.name || 'Provider'}</p>
         <p><strong>Date:</strong> ${booking?.scheduled_date || 'N/A'}</p>
         <p><strong>Time:</strong> ${booking?.scheduled_time || 'N/A'}</p>
         <p><strong>Address:</strong> ${booking?.address || 'N/A'}</p>
+
         <p>Thank you for using GoServify.</p>
       </body>
     </html>
   `;
 }
 
-// ✅ NEW BOOKING ALERT FOR PROVIDER
+// =============================
+// NEW BOOKING ALERT FOR PROVIDER
+// =============================
 function bookingAlertProvider(provider, booking, service, user) {
   return `
     <html>
       <body style="font-family: Arial, sans-serif;">
         <h1>📋 New Booking Request</h1>
+
         <p>Hi ${provider?.name || 'Provider'},</p>
         <p>You received a new booking for <strong>${service?.title || 'Service'}</strong>.</p>
+
         <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
         <p><strong>Customer:</strong> ${user?.name || 'User'}</p>
         <p><strong>Phone:</strong> ${user?.phone || 'N/A'}</p>
@@ -122,17 +143,24 @@ function bookingAlertProvider(provider, booking, service, user) {
   `;
 }
 
-// ✅ STATUS UPDATE EMAIL
+// =============================
+// STATUS UPDATE EMAIL
+// =============================
 function bookingStatusUpdate(user, booking, service, status, providerName) {
   return `
     <html>
       <body style="font-family: Arial, sans-serif;">
         <h1>📌 Booking Status Update</h1>
+
         <p>Hi ${user?.name || 'User'},</p>
+
         <p>Your booking for <strong>${service?.title || 'Service'}</strong> is now:</p>
+
         <h2>${status || 'Updated'}</h2>
+
         <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
         <p><strong>Provider:</strong> ${providerName || 'Provider'}</p>
+
         <p>Thank you for using GoServify.</p>
       </body>
     </html>
