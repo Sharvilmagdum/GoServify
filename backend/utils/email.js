@@ -2,25 +2,27 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 // =============================
-// GMAIL SMTP (SAME METHOD, OPTIMIZED)
+// BREVO SMTP (RENDER FRIENDLY)
 // =============================
 let transporter = null;
 
 // Only configure transporter if credentials exist
 if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
   transporter = nodemailer.createTransport({
-    // ✅ Keep Gmail
-    service: 'gmail',
+    // ✅ Brevo SMTP
+    host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
 
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
     },
 
-    // ✅ Longer timeout for Render
-    connectionTimeout: 60000,
-    greetingTimeout: 60000,
-    socketTimeout: 60000
+    // ✅ Better for Render/Vercel
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000
   });
 }
 
@@ -62,8 +64,6 @@ async function sendEmail(to, subject, htmlContent) {
   }
 
   try {
-    // ✅ Removed transporter.verify() because it often causes timeout on Render
-
     const info = await transporter.sendMail({
       from: `"${process.env.APP_NAME || 'GoServify'}" <${process.env.EMAIL_USER}>`,
       to,

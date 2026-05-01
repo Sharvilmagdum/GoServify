@@ -14,6 +14,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:3000',
   'http://localhost:5173'
+  'https://go-servify.vercel.app?_vercel_share=NBSP5esYURT02Q67ffyRlaPPfPFCEIMo'
 ].filter(Boolean);
 
 // Debug
