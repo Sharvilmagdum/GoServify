@@ -2,32 +2,25 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 // =============================
-// SAFE + RENDER FRIENDLY SMTP
+// GMAIL SMTP (SAME METHOD, OPTIMIZED)
 // =============================
 let transporter = null;
 
 // Only configure transporter if credentials exist
 if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
   transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-
-    // ✅ Better Gmail config for Render
-    port: 465,
-    secure: true, // SSL
+    // ✅ Keep Gmail
+    service: 'gmail',
 
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
     },
 
-    // ✅ Prevent timeout on Render
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-
-    tls: {
-      rejectUnauthorized: false
-    }
+    // ✅ Longer timeout for Render
+    connectionTimeout: 60000,
+    greetingTimeout: 60000,
+    socketTimeout: 60000
   });
 }
 
@@ -69,8 +62,7 @@ async function sendEmail(to, subject, htmlContent) {
   }
 
   try {
-    // Verify SMTP connection
-    await transporter.verify();
+    // ✅ Removed transporter.verify() because it often causes timeout on Render
 
     const info = await transporter.sendMail({
       from: `"${process.env.APP_NAME || 'GoServify'}" <${process.env.EMAIL_USER}>`,
@@ -87,7 +79,6 @@ async function sendEmail(to, subject, htmlContent) {
     };
 
   } catch (err) {
-    // Never crash app
     console.error(`⚠️ Email send failed (${to}):`, err.message);
 
     return {
