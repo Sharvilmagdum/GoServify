@@ -9,7 +9,9 @@ function genRef() {
   return 'SRV' + Date.now().toString(36).toUpperCase().slice(-6);
 }
 
-// Create booking (user)
+// =============================
+// CREATE BOOKING (USER)
+// =============================
 router.post('/', authMiddleware, async (req, res) => {
   const { service_id, scheduled_date, scheduled_time, address, city, lat, lng, notes } = req.body;
 
@@ -59,7 +61,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     console.log("✅ Booking inserted:", result.insertId);
 
-    // STEP 3: Respond FIRST (prevents hanging)
+    // STEP 3: Respond FIRST
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
@@ -69,7 +71,6 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // STEP 4: Background tasks (non-blocking)
     try {
-      // Fetch user info
       const [users] = await db.query(
         'SELECT name, email, phone FROM users WHERE id = ?',
         [req.user.id]
@@ -77,6 +78,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
       if (users.length > 0) {
         const user = users[0];
+
         const provider = {
           name: service.provider_name,
           email: service.provider_email
@@ -92,7 +94,6 @@ router.post('/', authMiddleware, async (req, res) => {
           notes
         };
 
-        // Send emails safely
         if (user.email) {
           await sendEmail(
             user.email,
@@ -109,7 +110,6 @@ router.post('/', authMiddleware, async (req, res) => {
           );
         }
 
-        // Notification safely
         await db.query(
           `INSERT INTO notifications 
           (recipient_type, recipient_id, type, title, message, data) 
@@ -129,15 +129,55 @@ router.post('/', authMiddleware, async (req, res) => {
 
         console.log("📩 Notifications + emails completed");
       }
+
     } catch (backgroundErr) {
       console.error("⚠️ Background booking tasks failed:", backgroundErr.message);
     }
 
   } catch (err) {
     console.error('❌ Booking error:', err);
+
     return res.status(500).json({
       success: false,
       message: 'Booking failed',
+      error: err.message
+    });
+  }
+});
+
+// =============================
+// GET MY BOOKINGS (USER)
+// =============================
+router.get('/my', authMiddleware, async (req, res) => {
+  try {
+    console.log("📌 Logged in user:", req.user);
+
+    const [bookings] = await db.query(`
+      SELECT 
+        b.*,
+        s.title,
+        s.price,
+        s.category,
+        s.image,
+        p.name AS provider_name,
+        p.phone AS provider_phone
+      FROM bookings b
+      JOIN services s ON b.service_id = s.id
+      JOIN providers p ON b.provider_id = p.id
+      WHERE b.user_id = ?
+      ORDER BY b.created_at DESC
+    `, [req.user.id]);
+
+    console.log("📌 User bookings found:", bookings.length);
+
+    return res.status(200).json(bookings);
+
+  } catch (err) {
+    console.error("❌ Fetch My Bookings Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bookings',
       error: err.message
     });
   }
