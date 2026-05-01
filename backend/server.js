@@ -16,6 +16,10 @@ const allowedOrigins = [
   'http://localhost:5173'
 ].filter(Boolean);
 
+// Debug
+console.log('🌍 FRONTEND_URL:', process.env.FRONTEND_URL);
+console.log('🌍 Allowed Origins:', allowedOrigins);
+
 // ✅ FIXED SOCKET.IO CORS
 const io = socketIO(server, {
   cors: {
@@ -28,29 +32,40 @@ const io = socketIO(server, {
 // Store io in app for use in routes
 app.set('io', io);
 
-// ✅ FIXED EXPRESS CORS (handles preflight properly)
+// ✅ FIXED EXPRESS CORS (NO 500 on blocked origins)
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow Postman / server-to-server / same-origin requests
+    // Allow Postman / same-origin / server-to-server
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
+    console.log('❌ Blocked Origin:', origin);
+
+    // IMPORTANT: Don't throw error → prevents preflight 500
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// ✅ Explicit preflight support
-app.options('*', cors());
+// ✅ MANUAL PRELIGHT FIX (critical for Vercel → Render)
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
 
-// Debug
-console.log('🌍 FRONTEND_URL:', process.env.FRONTEND_URL);
-console.log('🌍 Allowed Origins:', allowedOrigins);
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  return res.sendStatus(204);
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
