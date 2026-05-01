@@ -1,31 +1,16 @@
 const nodemailer = require('nodemailer');
+const axios = require('axios');
 require('dotenv').config();
 
 // =============================
-// BREVO SMTP (RENDER FRIENDLY)
+// BREVO API EMAIL SYSTEM
+// SMTP removed because Render timeout issue
 // =============================
-let transporter = null;
+const transporter = null;
 
-// Only configure transporter if credentials exist
-if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-  transporter = nodemailer.createTransport({
-    // ✅ Brevo SMTP
-    host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-    port: 465,
-    secure: true,
-
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    },
-
-    // ✅ Better for Render/Vercel
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000
-  });
-}
-
+// =============================
+// EMAIL STYLES
+// =============================
 const emailStyles = `
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
   .container { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
@@ -50,40 +35,64 @@ const emailStyles = `
 `;
 
 // =============================
-// SAFE EMAIL FUNCTION
+// SAFE EMAIL FUNCTION (BREVO API)
 // =============================
 async function sendEmail(to, subject, htmlContent) {
-  // Skip if not configured
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD || !transporter) {
-    console.log(`📧 Email skipped (not configured): ${subject} → ${to}`);
+  if (!process.env.BREVO_API_KEY) {
+    console.log(`📧 Email skipped (Brevo API not configured): ${subject} → ${to}`);
     return {
       success: false,
       skipped: true,
-      reason: 'Email not configured'
+      reason: 'Brevo API not configured'
     };
   }
 
   try {
-    const info = await transporter.sendMail({
-      from: `"${process.env.APP_NAME || 'GoServify'}" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      html: htmlContent
-    });
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          name: process.env.APP_NAME || 'GoServify',
+          email: process.env.EMAIL_USER
+        },
+
+        to: [
+          {
+            email: to
+          }
+        ],
+
+        subject: subject,
+
+        htmlContent: htmlContent
+      },
+      {
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+
+        timeout: 15000
+      }
+    );
 
     console.log(`📧 Email sent successfully to ${to}: ${subject}`);
 
     return {
       success: true,
-      messageId: info.messageId
+      data: response.data
     };
 
   } catch (err) {
-    console.error(`⚠️ Email send failed (${to}):`, err.message);
+    console.error(
+      `⚠️ Brevo API send failed (${to}):`,
+      err.response?.data || err.message
+    );
 
     return {
       success: false,
-      error: err.message
+      error: err.response?.data || err.message
     };
   }
 }
@@ -96,7 +105,9 @@ function bookingConfirmationUser(user, booking, service, provider) {
     <html>
       <body style="font-family: Arial, sans-serif;">
         <h1>🎉 Booking Confirmed</h1>
+
         <p>Hi ${user?.name || 'User'},</p>
+
         <p>Your booking for <strong>${service?.title || 'Service'}</strong> has been placed successfully.</p>
 
         <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
@@ -121,6 +132,7 @@ function bookingAlertProvider(provider, booking, service, user) {
         <h1>📋 New Booking Request</h1>
 
         <p>Hi ${provider?.name || 'Provider'},</p>
+
         <p>You received a new booking for <strong>${service?.title || 'Service'}</strong>.</p>
 
         <p><strong>Booking Ref:</strong> #${booking?.booking_ref || 'N/A'}</p>
