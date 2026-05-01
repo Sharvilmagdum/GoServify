@@ -4,12 +4,19 @@ const socketIO = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
+require('./config/db');
 
 const app = express();
 const server = http.createServer(app);
+
+// ✅ FIXED CORS (handles Render + local)
 const io = socketIO(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ].filter(Boolean),
     methods: ['GET', 'POST']
   }
 });
@@ -17,11 +24,16 @@ const io = socketIO(server, {
 // Store io in app for use in routes
 app.set('io', io);
 
-// Middleware
+// ✅ FIXED CORS middleware
 app.use(cors({
-  origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://localhost:5173'],
+  origin: [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ].filter(Boolean),
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -37,7 +49,9 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/user', require('./routes/users'));
 
 // Health check
-app.get('/health', (req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
@@ -46,7 +60,6 @@ app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
 
-  // Join personal room for targeted notifications
   socket.on('join', ({ userId, role }) => {
     const room = `${role}_${userId}`;
     socket.join(room);
@@ -58,8 +71,10 @@ io.on('connection', (socket) => {
   });
 });
 
+// ✅ CRITICAL FIX FOR RENDER (port + host binding)
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`
   ╔══════════════════════════════════════╗
   ║   🚀 SERVIFY Backend Running         ║
