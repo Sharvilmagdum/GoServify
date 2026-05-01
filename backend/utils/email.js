@@ -11,8 +11,8 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
   transporter = nodemailer.createTransport({
     // ✅ Brevo SMTP
     host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false,
+    port: 465,
+    secure: true,
 
     auth: {
       user: process.env.EMAIL_USER,
